@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mines Predictor</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Courier New', monospace;
+      background: url('https://wallpapercave.com/wp/wp5121246.jpg') no-repeat center center fixed;
+      background-size: cover;
+      color: #00ffea;
+    }
+    .screen {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+    .container {
+      background-color: rgba(0, 0, 0, 0.8);
+      padding: 30px;
+      border-radius: 15px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+      box-shadow: 0 0 15px #00ffea;
+    }
+    input, button {
+      padding: 10px;
+      margin: 10px 0;
+      width: 100%;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+    }
+    button {
+      background-color: #00ffea;
+      color: black;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #00e0cc;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(5, 50px);
+      grid-template-rows: repeat(5, 50px);
+      gap: 6px;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .tile {
+      background-color: #111;
+      border: 1px solid #00ffea;
+      border-radius: 6px;
+      width: 50px;
+      height: 50px;
+    }
+    .safe {
+      background-color: #006eff;
+      position: relative;
+    }
+    .safe::after {
+      content: "★";
+      position: absolute;
+      color: yellow;
+      font-size: 24px;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+    }
+    #passwordScreen { background-color: rgba(0,0,0,0.85); }
+  </style>
+</head>
+<body>
+
+  <!-- 🔒 Password Screen -->
+  <div id="passwordScreen" class="screen">
+    <div class="container">
+      <h1>Enter Password</h1>
+      <input type="password" id="passwordInput" placeholder="Enter password" />
+      <button onclick="checkPassword()">Enter</button>
+      <p id="passwordError" style="color: red;"></p>
+    </div>
+  </div>
+
+  <!-- 💻 Main App -->
+  <div id="mainApp" class="screen" style="display: none;">
+    <div class="container">
+      <h2>Mines Predictor</h2>
+
+      <input type="text" id="clientSeed" placeholder="Client Seed">
+      <input type="text" id="serverSeed" placeholder="Server Seed">
+      <input type="number" id="numMines" min="1" max="24" value="3" placeholder="Number of Mines">
+
+      <button onclick="predictSafeTile()">Predict 100% Safe Tile</button>
+
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <script>
+    function checkPassword() {
+      const pass = document.getElementById("passwordInput").value;
+      const error = document.getElementById("passwordError");
+      if (pass === "777mimines") {
+        document.getElementById("passwordScreen").style.display = "none";
+        document.getElementById("mainApp").style.display = "flex";
+      } else {
+        error.textContent = "Incorrect password.";
+      }
+    }
+
+    async function sha256(message) {
+      const encoder = new TextEncoder();
+      const data = encoder.encode(message);
+      const hashBuffer = await crypto.subtle.digest("SHA-256", data);
+      return Array.from(new Uint8Array(hashBuffer)).map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+
+    function generateMines(seedHash, mineCount) {
+      const tiles = Array.from({ length: 25 }, (_, i) => i);
+      const mines = [];
+
+      for (let i = 0; mines.length < mineCount && tiles.length > 0; i++) {
+        const chunk = seedHash.substr(i * 2, 2);
+        const rand = parseInt(chunk, 16);
+        const index = rand % tiles.length;
+        mines.push(tiles.splice(index, 1)[0]);
+      }
+
+      return mines;
+    }
+
+    async function predictSafeTile() {
+      const clientSeed = document.getElementById("clientSeed").value;
+      const serverSeed = document.getElementById("serverSeed").value;
+      const numMines = parseInt(document.getElementById("numMines").value);
+
+      if (!clientSeed || !serverSeed || isNaN(numMines)) {
+        alert("Please enter all fields.");
+        return;
+      }
+
+      const hash = await sha256(serverSeed + clientSeed);
+      const mines = generateMines(hash, numMines);
+
+      const allTiles = Array.from({ length: 25 }, (_, i) => i);
+      const safeTiles = allTiles.filter(i => !mines.includes(i));
+      const safeTile = safeTiles[0]; // just pick the first safe one
+
+      renderGrid(safeTile);
+    }
+
+    function renderGrid(safeIndex) {
+      const grid = document.getElementById("grid");
+      grid.innerHTML = "";
+
+      for (let i = 0; i < 25; i++) {
+        const div = document.createElement("div");
+        div.classList.add("tile");
+        if (i === safeIndex) {
+          div.classList.add("safe");
+        }
+        grid.appendChild(div);
+      }
+    }
+  </script>
+
+</body>
+</html>
